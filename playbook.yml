@@ -1,0 +1,10 @@
+---
+- hosts: all
+  gather_facts: true
+  remote_user: root
+  become: true
+  
+  roles:
+  - cloud_watch-agent
+  - ssm_agent
+  

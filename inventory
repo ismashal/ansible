@@ -1,0 +1,6 @@
+[dev]
+13.126.158.30
+
+[dev:vars]
+ansible_ssh_user=root
+ansible_ssh_private_key_file=.ssh/private-key
