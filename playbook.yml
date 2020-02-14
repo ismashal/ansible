@@ -1,10 +1,9 @@
 ---
 - hosts: all
   gather_facts: true
-  remote_user: root
+  remote_user: ec2-user
   become: true
-  
+
   roles:
-  - cloud_watch-agent
+  - cloud_watch_agent
   - ssm_agent
-  

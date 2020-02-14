@@ -3,10 +3,6 @@
   register: init_status_result
   ignore_errors: yes
 
-#- debug:
-#  var: init_status_result.stderr
-#  verbosity: 2
-
 - name: Create Directory for Downloading Cloudwatch Agent .zip
   file:
     path: /opt/aws/amazon-cloudwatch-zip
@@ -15,54 +11,65 @@
     group: root
     mode: 0755
     recurse: no
-  #when: init_status_result.stderr | search("Unknown job")
+  ignore_errors: yes
 
 - name: Download Latest Version of Amazon Cloudwatch Agent
   get_url:
     url: "https://s3.amazonaws.com/amazoncloudwatch-agent/linux/amd64/latest/AmazonCloudWatchAgent.zip"
     dest: /opt/aws/amazon-cloudwatch-zip/AmazonCloudWatchAgent.zip
     mode: 0755
-#  when: init_status_result.stderr | search("Unknown job")
+  ignore_errors: yes
 
 - name: Unzip Cloudwatch Download File
   unarchive:
     remote_src: yes
     src: /opt/aws/amazon-cloudwatch-zip/AmazonCloudWatchAgent.zip
     dest: /opt/aws/amazon-cloudwatch-zip
-#  when: init_status_result.stderr | search("Unknown job")
+  ignore_errors: yes
 
 - name: Execute the Installation Script
   command: /opt/aws/amazon-cloudwatch-zip/install.sh
   args:
     chdir: /opt/aws/amazon-cloudwatch-zip
-#  when: init_status_result.stderr | search("Unknown job")
-
-- name: Transfer Cloudwatch Common Configuration(Proxies...) File
-  copy:
-    src: /files/common-config.toml
-    dest: /opt/aws/amazon-cloudwatch-agent/etc
-    owner: ec2-user
-    group: ec2-user
-    mode: 0755
-#  when: init_status_result.stderr | search("Unknown job")
+  ignore_errors: yes
 
 - name: Transfer Cloudwatch Configuration File
   copy:
-    src: /files/amazon-cloudwatch-agent.json
+    src: files/amazon-cloudwatch-agent.json
     dest: /opt/aws/amazon-cloudwatch-agent/etc
     owner: ec2-user
     group: ec2-user
     mode: 0755
-
-- name: Stop Amazon Cloudwatch Agent
-  command: stop amazon-cloudwatch-agent
   ignore_errors: yes
 
-- name: Start Amazon Cloudwatch Agent
-  command: start amazon-cloudwatch-agent
-  
+- name: restart-cw-agent
+  shell: |
+    ./amazon-cloudwatch-agent-ctl \
+        -a fetch-config \
+        -m ec2 \
+        -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json \
+        -s
+  args:
+    chdir: /opt/aws/amazon-cloudwatch-agent/bin
+  become: true
+  ignore_errors: yes
+
 - name: Validate if the agent is running or not
   shell: /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -m ec2 -a status
   register: out
 - debug:
    msg: "{{ out }}"
+
+- name: Add log rotation for amazon-cloudwatch-agent
+  copy:
+    dest: '/etc/logrotate.d/aws-cwa'
+    owner: 'root'
+    group: 'root'
+    content: |
+      /opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log {
+        size 01M
+        rotate 5
+        compress
+        missingok
+        copytruncate
+      }
